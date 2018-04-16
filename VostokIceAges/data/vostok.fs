@@ -89,7 +89,6 @@ void main()
 	float zpos = (c - CO2range[0])/(CO2range[1] - CO2range[0]);
 	float zpos1 = floor(zpos * nFrames) / nFrames; 
 	float zpos2 = ceil(zpos * nFrames) / nFrames; 
-	// vec4 color = texture(glacierTex, vec3(TexCoord, zpos1));
 	vec4 color1 = texture(glacierTex, vec3(TexCoord, zpos1));
 	vec4 color2 = texture(glacierTex, vec3(TexCoord, zpos2));
 	//vec4 color1 = getmC(glacierTex, vec3(TexCoord, zpos1));
@@ -101,8 +100,6 @@ void main()
 	float yNow = TexCoord.y;
 	float wlim1 = 0.05;
 	float wlim2 = wlim1;
-	//float w1 = getCdiff(glacierTex, vec3(TexCoord, zpos1));
-	//float w2 = getCdiff(glacierTex, vec3(TexCoord, zpos2));
 	float w10 = max(max(abs(color1.r - color1.g), abs(color1.r - color1.b)),  abs(color1.g - color1.b)) / length(color1.rgb);
 	float w20 = max(max(abs(color2.r - color2.g), abs(color2.r - color2.b)),  abs(color2.g - color2.b)) / length(color2.rgb);
 
@@ -138,10 +135,6 @@ void main()
 	if (w10 < wlim1 && w20 < wlim2){
 		color = mix(color1, color2, zmix);		
 	}
-
-
-	//ivec3 iTexCoord = ivec3(round(TexCoord.x)*2048, round(TexCoord.y)*1024, floor(zpos)*32);
-	//vec4 color = texelFetch(glacierTex, iTexCoord);
 	
 	color.a = uv_alpha*uv_fade;
 
@@ -152,5 +145,4 @@ void main()
 	color.r += CO2color;
 
 	FragColor = color;
-	//FragColor = vec4(zpos, 0, 0, 1);
 }
