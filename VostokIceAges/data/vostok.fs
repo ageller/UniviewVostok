@@ -6,6 +6,7 @@ uniform float ntAve;
 uniform float tAveRange;
 uniform float CO2lim;
 uniform bool showCO2;
+uniform float dy;
 
 uniform sampler3D glacierTex;
 uniform sampler2D CO2Tex;
@@ -18,6 +19,53 @@ uniform float nFrames;
 in vec2 TexCoord;
 
 out vec4 FragColor;
+
+const float PI = 3.1415926535897932384626433;
+
+vec4 getmC(sampler3D tex, vec3 coord){
+	float smoothN = 5;
+	float smoothL = 0.002;
+	vec3 newCoord = coord;
+	vec4 color = vec4(0);
+	for (int i=0; i<smoothN; i++){
+		for (int j=0; j<smoothN; j++){
+			newCoord = coord;
+			newCoord.x += (i/smoothN - 0.5)*smoothL/cos(2.*(coord.y - 0.5) * PI/180.);
+			newCoord.y += (j/smoothN - 0.5)*smoothL;
+			color += texture(tex, newCoord);
+
+		}
+	}
+	color = color/smoothN/smoothN;
+
+	return color;
+
+}
+
+float getIceY(sampler3D tex, vec3 coord, float wlim){
+	vec4 color = texture(tex, coord);
+	float w = max(max(abs(color.r - color.g), abs(color.r - color.b)),  abs(color.g - color.b)) / length(color.rgb);
+	vec3 ucoord = coord;
+
+	if (w <= wlim){
+	//in ice now
+		while (w <= wlim && ucoord.y < 1){
+			ucoord.y += dy;
+			color = texture(tex, ucoord);
+ 			w = max(max(abs(color.r - color.g), abs(color.r - color.b)),  abs(color.g - color.b)) / length(color.rgb);		
+ 		}
+ 	} else {
+	//not in ice now
+		while (w > wlim && ucoord.y > 0){
+			ucoord.y -= dy;
+			color = texture(tex, ucoord);
+ 			w = max(max(abs(color.r - color.g), abs(color.r - color.b)),  abs(color.g - color.b)) / length(color.rgb);		
+ 		}
+ 	}
+
+ 	return ucoord.y;	
+}
+
 
 void main()
 {	
@@ -44,42 +92,52 @@ void main()
 	// vec4 color = texture(glacierTex, vec3(TexCoord, zpos1));
 	vec4 color1 = texture(glacierTex, vec3(TexCoord, zpos1));
 	vec4 color2 = texture(glacierTex, vec3(TexCoord, zpos2));
+	//vec4 color1 = getmC(glacierTex, vec3(TexCoord, zpos1));
+	//vec4 color2 = getmC(glacierTex, vec3(TexCoord, zpos2));
 	float zmix = (zpos - zpos1)/(zpos2 - zpos1);
-	vec4 color = color1;//mix(color1, color2, zmix);
+	vec4 color = color1;
 
 	//see if we need to fix the transition from land to ice
-	float wlim = 1.5;
-	float dy = 0.001;
-	float w1 = color1.r + color1.g + color1.b;
-	float w2 = color2.r + color2.g + color2.b;
-	if (w2 >= wlim && w1 < wlim){
-		//where the ice begins in zpos1
-		vec2 uTexCoord1 = TexCoord;
-		while (w1 < wlim && uTexCoord1.y > 0){
-			uTexCoord1.y -= dy;
-			color1 = texture(glacierTex, vec3(uTexCoord1, zpos1));
-			w1 = color1.r + color1.g + color1.b;
-		}
-		//where the ice ends in zpos2
-		vec2 uTexCoord2 = TexCoord;
-		while (w2 >= wlim && uTexCoord2.y < 1){
-			uTexCoord2.y += dy;
-			color2 = texture(glacierTex, vec3(uTexCoord2, zpos2));
-			w2 = color2.r + color2.g + color2.b;
-		}
+	float yNow = TexCoord.y;
+	float wlim1 = 0.05;
+	float wlim2 = wlim1;
+	//float w1 = getCdiff(glacierTex, vec3(TexCoord, zpos1));
+	//float w2 = getCdiff(glacierTex, vec3(TexCoord, zpos2));
+	float w10 = max(max(abs(color1.r - color1.g), abs(color1.r - color1.b)),  abs(color1.g - color1.b)) / length(color1.rgb);
+	float w20 = max(max(abs(color2.r - color2.g), abs(color2.r - color2.b)),  abs(color2.g - color2.b)) / length(color2.rgb);
+
+	//get the y locations of the ice
+	//NOTE: I need to do this at each pixel so that I can get rid of the region right around the ice
+	//any attempts I've made to only find the ice location when the interpolation is needed results in regions that don't get selected and therefore stripes on the final color
+	vec3 uTexCoord1 = vec3(TexCoord, zpos1);
+	vec3 uTexCoord2 = vec3(TexCoord, zpos2);
+	uTexCoord1.y = getIceY(glacierTex, uTexCoord1, wlim1);
+	uTexCoord2.y = getIceY(glacierTex, uTexCoord2, wlim2);
+	
+	float yoff = 0.005;
+
+	//transition of ice between texture pixels
+	if (w20 <= wlim2 && w10 > wlim1){
 		float d21 = uTexCoord2.y - uTexCoord1.y;
-		float yNow = uTexCoord1.y + d21 * zmix;
+		yNow = uTexCoord1.y + d21 * zmix;
 		if (yNow >= TexCoord.y){
-			color.rgb = vec3(0.9);
-		} 
-	}
+			color = color2;//vec3(0.9);
+		}  
+	} //else {
+		// //problem region
+		// if (abs(TexCoord.y - uTexCoord2.y) <= yoff){
+		// 	color = vec4(0,1,0,1);
+		// }
+	//}
 
 	//land
-	if (w2 < wlim && w1 < wlim){
+	if (w10 > wlim1 && w20 > wlim2 && abs(TexCoord.y - uTexCoord2.y) > yoff){
 		color = mix(color1, color2, zmix);
-
 	}
-
+	//ice
+	if (w10 < wlim1 && w20 < wlim2){
+		color = mix(color1, color2, zmix);		
+	}
 
 
 	//ivec3 iTexCoord = ivec3(round(TexCoord.x)*2048, round(TexCoord.y)*1024, floor(zpos)*32);
