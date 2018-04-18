@@ -4,8 +4,6 @@ uniform float uv_alpha;
 uniform float simUseTime;
 uniform float ntAve;
 uniform float tAveRange;
-uniform float CO2lim;
-uniform bool showCO2;
 uniform float dy;
 
 uniform sampler3D glacierTex;
@@ -138,11 +136,7 @@ void main()
 	
 	color.a = uv_alpha*uv_fade;
 
-	float CO2color = 0.;
-	if (showCO2){
-		CO2color = (1. - zpos)*CO2lim;
-	}
-	color.r += CO2color;
+
 
 	FragColor = color;
 }
