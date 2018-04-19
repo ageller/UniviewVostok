@@ -52,7 +52,7 @@ void main()
 			} else {
 				c = 240.*exp(-0.002*(simUseTime - 2100.)) + 500.;
 			}
-			CO2color = clamp((c - 360)/(745 - 360), 0 , 1)*CO2lim;
+			CO2color = clamp((c - 360)/(745 - 360), 0 , 1)*CO2lim*2.;
 		}
 	}
 	
