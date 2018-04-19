@@ -15,7 +15,6 @@ uniform vec2 CO2range;
 uniform vec2 pastTimerange;
 uniform vec2 futureTimerange;
 uniform float nFramesPast;
-uniform float nFramesFuture;
 
 in vec2 TexCoord;
 
