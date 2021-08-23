@@ -15,7 +15,6 @@ uniform vec2 CO2range;
 uniform vec2 pastTimerange;
 uniform vec2 futureTimerange;
 uniform float nFramesPast;
-uniform float nFramesFuture;
 
 in vec2 TexCoord;
 
@@ -48,17 +47,22 @@ float getIceY(sampler3D tex, vec3 coord, float wlim){
 	float w = max(max(abs(color.r - color.g), abs(color.r - color.b)),  abs(color.g - color.b)) / length(color.rgb);
 	vec3 ucoord = coord;
 
+	float usedy = dy;
+	if (coord.y > 0.5){
+		usedy = -1.*dy;
+	}
+	
 	if (w <= wlim){
 	//in ice now
 		while (w <= wlim && ucoord.y < 1){
-			ucoord.y += dy;
+			ucoord.y += usedy;
 			color = texture(tex, ucoord);
  			w = max(max(abs(color.r - color.g), abs(color.r - color.b)),  abs(color.g - color.b)) / length(color.rgb);		
  		}
  	} else {
 	//not in ice now
 		while (w > wlim && ucoord.y > 0){
-			ucoord.y -= dy;
+			ucoord.y -= usedy;
 			color = texture(tex, ucoord);
  			w = max(max(abs(color.r - color.g), abs(color.r - color.b)),  abs(color.g - color.b)) / length(color.rgb);		
  		}
@@ -98,7 +102,7 @@ void main()
 		//vec4 color1 = getmC(pastGlacierTex, vec3(TexCoord, zpos1));
 		//vec4 color2 = getmC(pastGlacierTex, vec3(TexCoord, zpos2));
 		float zmix = (zpos - zpos1)/(zpos2 - zpos1);
-		color = color1;
+
 
 		//see if we need to fix the transition from land to ice
 		float yNow = TexCoord.y;
@@ -115,30 +119,40 @@ void main()
 		uTexCoord1.y = getIceY(pastGlacierTex, uTexCoord1, wlim1);
 		uTexCoord2.y = getIceY(pastGlacierTex, uTexCoord2, wlim2);
 		
+		if ((uTexCoord1.y < uTexCoord2.y && TexCoord.y < 0.5) || (uTexCoord1.y > uTexCoord2.y && TexCoord.y > 0.5)){
+			color = color1;
+		} else {
+			color = color2;
+		}
+		
 		float yoff = 0.02;
 
 		//transition of ice between texture pixels
-		if (w20 <= wlim2 && w10 > wlim1){
+		if (w20 <= wlim2 && w10 > wlim1 ){
 			float d21 = uTexCoord2.y - uTexCoord1.y;
 			yNow = uTexCoord1.y + d21 * zmix;
-			if (yNow >= TexCoord.y){
+			if ((yNow >= TexCoord.y && TexCoord.y <= 0.5) || (yNow <= TexCoord.y  && TexCoord.y > 0.5)){
 				color = color2;//vec3(0.9);
 			}  
-		} //else {
-			// //problem region
-			// if (abs(TexCoord.y - uTexCoord2.y) <= yoff){
-			// 	color = vec4(0,1,0,1);
-			// }
-		//}
+		} 
+		if (w20 > wlim2 && w10 <= wlim1 ){
+			float d12 = uTexCoord1.y - uTexCoord2.y;
+			yNow = uTexCoord1.y - d12 * zmix;
+			if ((yNow >= TexCoord.y && TexCoord.y <= 0.5) || (yNow >= TexCoord.y  && TexCoord.y > 0.5)){
+				color = color1;//vec3(0.9);
+			} 
+			
+		} 			
 
-		//land
-		if (w10 > wlim1 && w20 > wlim2 && abs(TexCoord.y - uTexCoord2.y) > yoff){
+		//land (plus edges near ice that aren't picked up above)
+		if (w10 > wlim1 && w20 > wlim2 && abs(TexCoord.y - max(uTexCoord2.y, uTexCoord1.y)) > yoff  ){
 			color = mix(color1, color2, zmix);
 		}
 		//ice
 		if (w10 < wlim1 && w20 < wlim2){
 			color = mix(color1, color2, zmix);		
 		}
+		
 		
 	} else {
 		float zpos = clamp(1. - (simUseTime - futureTimerange[0])/(futureTimerange[1] - futureTimerange[0]), 0.001, 0.999);;
@@ -147,7 +161,7 @@ void main()
 
 	}
 
-	
+
 	color.a = uv_alpha*uv_fade;
 	FragColor = color;
 }
